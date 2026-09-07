@@ -141,3 +141,7 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+WORKFLOW.md
+test_scoring.py
+__pycache__
