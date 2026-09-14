@@ -1,0 +1,221 @@
+{
+  "sample_type": "Resume A: Conventional Technical Resume",
+  "comprehend_raw_entities": {
+    "standard_entities": [
+      {
+        "Text": "SARAH JENKINS",
+        "Type": "PERSON",
+        "Score": 0.99,
+        "BeginOffset": 0,
+        "EndOffset": 13
+      },
+      {
+        "Text": "Seattle, WA",
+        "Type": "LOCATION",
+        "Score": 0.95,
+        "BeginOffset": 150,
+        "EndOffset": 161
+      },
+      {
+        "Text": "Cloud Support Associate",
+        "Type": "TITLE",
+        "Score": 0.96,
+        "BeginOffset": 610,
+        "EndOffset": 633
+      },
+      {
+        "Text": "Cloud Engineer",
+        "Type": "TITLE",
+        "Score": 0.94,
+        "BeginOffset": 636,
+        "EndOffset": 650
+      },
+      {
+        "Text": "Apex Cloud Solutions",
+        "Type": "ORGANIZATION",
+        "Score": 0.98,
+        "BeginOffset": 580,
+        "EndOffset": 600
+      },
+      {
+        "Text": "Systems Engineer",
+        "Type": "TITLE",
+        "Score": 0.95,
+        "BeginOffset": 970,
+        "EndOffset": 986
+      },
+      {
+        "Text": "CloudCorp Inc.",
+        "Type": "ORGANIZATION",
+        "Score": 0.97,
+        "BeginOffset": 945,
+        "EndOffset": 959
+      },
+      {
+        "Text": "January 2023 - Present",
+        "Type": "DATE",
+        "Score": 0.98,
+        "BeginOffset": 651,
+        "EndOffset": 673
+      },
+      {
+        "Text": "June 2021 - December 2022",
+        "Type": "DATE",
+        "Score": 0.97,
+        "BeginOffset": 987,
+        "EndOffset": 1012
+      },
+      {
+        "Text": "University of Washington",
+        "Type": "ORGANIZATION",
+        "Score": 0.92,
+        "BeginOffset": 1250,
+        "EndOffset": 1274
+      }
+    ],
+    "custom_skill_entities": [
+      {
+        "Text": "AWS",
+        "Type": "SKILL",
+        "Score": 0.98
+      },
+      {
+        "Text": "AWS Lambda",
+        "Type": "SKILL",
+        "Score": 0.97
+      },
+      {
+        "Text": "Amazon DynamoDB",
+        "Type": "SKILL",
+        "Score": 0.96
+      },
+      {
+        "Text": "Amazon S3",
+        "Type": "SKILL",
+        "Score": 0.95
+      },
+      {
+        "Text": "Amazon SQS",
+        "Type": "SKILL",
+        "Score": 0.94
+      },
+      {
+        "Text": "CloudWatch",
+        "Type": "SKILL",
+        "Score": 0.92
+      },
+      {
+        "Text": "API Gateway",
+        "Type": "SKILL",
+        "Score": 0.9
+      },
+      {
+        "Text": "Python",
+        "Type": "SKILL",
+        "Score": 0.99
+      },
+      {
+        "Text": "SQL",
+        "Type": "SKILL",
+        "Score": 0.91
+      },
+      {
+        "Text": "Docker",
+        "Type": "SKILL",
+        "Score": 0.95
+      },
+      {
+        "Text": "Terraform",
+        "Type": "SKILL",
+        "Score": 0.96
+      },
+      {
+        "Text": "Git",
+        "Type": "SKILL",
+        "Score": 0.93
+      },
+      {
+        "Text": "Linux",
+        "Type": "SKILL",
+        "Score": 0.92
+      }
+    ]
+  },
+  "normalized_candidate_record": {
+    "job_id": "job_2026_001",
+    "candidate_id": "cand_0001_conventional",
+    "source_s3_key": "jobs/job_2026_001/resumes/cand_0001_conventional/source.pdf",
+    "parsed_profile": {
+      "name": "SARAH JENKINS",
+      "email": "sarah.jenkins@example.com",
+      "phone": "+1 (555) 234-5678",
+      "skills": [
+        "API Gateway",
+        "AWS",
+        "Bash",
+        "CI/CD",
+        "CloudWatch",
+        "Docker",
+        "DynamoDB",
+        "Git",
+        "GitHub Actions",
+        "Jenkins",
+        "Lambda",
+        "Linux",
+        "Microservices",
+        "Python",
+        "REST APIs",
+        "S3",
+        "SQL",
+        "SQS",
+        "Serverless",
+        "Terraform"
+      ],
+      "job_titles": [
+        "Cloud Engineer",
+        "Cloud Support Associate",
+        "Systems Engineer"
+      ],
+      "employers": [
+        "Apex Cloud Solutions",
+        "Cloudcorp Inc."
+      ],
+      "experience_years": 9.7,
+      "links": {
+        "linkedin": "https://linkedin.com/in/sarahjenkins-cloud",
+        "github": "https://github.com/sjenkins-dev"
+      },
+      "date_ranges": [
+        {
+          "raw_start": "January 2023",
+          "raw_end": "Present",
+          "start": "2023-01",
+          "end": "2026-09"
+        },
+        {
+          "raw_start": "June 2021",
+          "raw_end": "December 2022",
+          "start": "2021-06",
+          "end": "2022-12"
+        },
+        {
+          "raw_start": "2017",
+          "raw_end": "2021",
+          "start": "2017-01",
+          "end": "2021-12"
+        }
+      ],
+      "confidence": {
+        "overall": 0.95,
+        "name": 0.99,
+        "skills": 0.91,
+        "job_titles": 0.95,
+        "employers": 0.97
+      },
+      "flags": []
+    },
+    "processing_status": "PARSED",
+    "version": 1,
+    "updated_at": "2026-09-14T05:34:39.815608+00:00"
+  }
+}

@@ -1,0 +1,31 @@
+SARAH JENKINS
+Email: sarah.jenkins@example.com | Phone: +1 (555) 234-5678
+LinkedIn: https://linkedin.com/in/sarahjenkins-cloud | GitHub: https://github.com/sjenkins-dev
+Location: Seattle, WA
+
+PROFESSIONAL SUMMARY
+Results-driven Cloud Engineer with 5+ years of experience designing and deploying serverless applications on Amazon Web Services (AWS). Proven track record of architecting event-driven architectures with AWS Lambda, DynamoDB, S3, and SQS. Strong background in Infrastructure as Code (Terraform) and automated CI/CD pipelines.
+
+TECHNICAL SKILLS
+- Cloud & Serverless: Amazon Web Services (AWS), AWS Lambda, Amazon DynamoDB, Amazon S3, Amazon SQS, CloudWatch, API Gateway
+- Languages: Python, SQL, Bash
+- DevOps & Containers: Docker, Terraform, Git, GitHub Actions, Linux
+- Architecture: Microservices, RESTful APIs, Event-Driven Architecture
+
+PROFESSIONAL EXPERIENCE
+Apex Cloud Solutions | Seattle, WA
+Cloud Support Associate / Cloud Engineer
+January 2023 - Present
+- Built and maintained scalable serverless pipelines utilizing AWS Lambda, DynamoDB, and Amazon SQS, reducing processing latency by 35%.
+- Automated infrastructure provisioning with Terraform and managed continuous deployment via GitHub Actions.
+- Implemented CloudWatch alerting and structured JSON logging for high-availability production workloads.
+
+CloudCorp Inc. | Portland, OR
+Systems Engineer
+June 2021 - December 2022
+- Maintained hybrid cloud infrastructure and Linux application servers.
+- Automated routine database backups and monitoring tasks using Python and Bash scripts.
+- Collaborated with engineering teams to containerize legacy services using Docker.
+
+EDUCATION
+Bachelor of Science in Computer Science | University of Washington | 2017 - 2021

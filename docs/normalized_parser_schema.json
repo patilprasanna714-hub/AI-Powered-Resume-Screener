@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NormalizedCandidateProfile",
+  "description": "Normalized candidate profile schema produced by Sasi's Comprehend NLP & Data Parsing Lambda",
+  "type": "object",
+  "required": [
+    "job_id",
+    "candidate_id",
+    "source_s3_key",
+    "parsed_profile",
+    "processing_status",
+    "version",
+    "updated_at"
+  ],
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "description": "Unique identifier of the target job record (e.g. job_2026_001)"
+    },
+    "candidate_id": {
+      "type": "string",
+      "description": "Unique identifier of the candidate submission (e.g. cand_0003)"
+    },
+    "source_s3_key": {
+      "type": "string",
+      "description": "S3 object path to the original uploaded resume document"
+    },
+    "processing_status": {
+      "type": "string",
+      "enum": ["PARSING", "PARSED", "SCORED", "FAILED", "VALIDATION_FAILED"],
+      "description": "Current state in the processing lifecycle"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Optimistic locking and idempotency version number"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp of the last parsing run"
+    },
+    "parsed_profile": {
+      "type": "object",
+      "required": [
+        "name",
+        "email",
+        "skills",
+        "job_titles",
+        "employers",
+        "experience_years",
+        "confidence",
+        "flags"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Extracted candidate full name from header PERSON entity"
+        },
+        "email": {
+          "type": ["string", "null"],
+          "format": "email",
+          "description": "Normalized lowercase email address (masked in logs)"
+        },
+        "phone": {
+          "type": ["string", "null"],
+          "description": "Standardized candidate phone number"
+        },
+        "skills": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Sorted list of normalized, canonical domain skills"
+        },
+        "job_titles": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Normalized job titles aligned with approved role taxonomy"
+        },
+        "employers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Unique employer and organization names"
+        },
+        "experience_years": {
+          "type": "number",
+          "minimum": 0.0,
+          "description": "Net calculated professional experience in years, with overlapping date intervals merged"
+        },
+        "links": {
+          "type": "object",
+          "properties": {
+            "linkedin": { "type": "string" },
+            "github": { "type": "string" }
+          },
+          "additionalProperties": { "type": "string" }
+        },
+        "date_ranges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "raw_start": { "type": "string" },
+              "raw_end": { "type": "string" },
+              "start": { "type": "string" },
+              "end": { "type": "string" }
+            }
+          }
+        },
+        "confidence": {
+          "type": "object",
+          "required": ["overall", "name", "skills", "job_titles", "employers"],
+          "properties": {
+            "overall": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+            "name": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+            "skills": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+            "job_titles": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+            "employers": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
+          }
+        },
+        "flags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Quality and traceability flags (e.g. LOW_CONFIDENCE_NAME, MISSING_PHONE)"
+        }
+      }
+    }
+  }
+}

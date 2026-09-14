@@ -1,0 +1,143 @@
+{
+  "sample_type": "Resume C: Sparse / Ambiguous Resume (Freelance / Sparse Dates / Missing Phone)",
+  "comprehend_raw_entities": {
+    "standard_entities": [
+      {
+        "Text": "AVERY TAYLOR",
+        "Type": "PERSON",
+        "Score": 0.98,
+        "BeginOffset": 0,
+        "EndOffset": 12
+      },
+      {
+        "Text": "Frontend Developer",
+        "Type": "TITLE",
+        "Score": 0.91,
+        "BeginOffset": 120,
+        "EndOffset": 138
+      },
+      {
+        "Text": "PixelForge Studio",
+        "Type": "ORGANIZATION",
+        "Score": 0.88,
+        "BeginOffset": 520,
+        "EndOffset": 537
+      },
+      {
+        "Text": "2023 - 2024",
+        "Type": "DATE",
+        "Score": 0.85,
+        "BeginOffset": 410,
+        "EndOffset": 421
+      },
+      {
+        "Text": "2022",
+        "Type": "DATE",
+        "Score": 0.8,
+        "BeginOffset": 540,
+        "EndOffset": 544
+      },
+      {
+        "Text": "2021",
+        "Type": "DATE",
+        "Score": 0.78,
+        "BeginOffset": 700,
+        "EndOffset": 704
+      }
+    ],
+    "custom_skill_entities": [
+      {
+        "Text": "JavaScript",
+        "Type": "SKILL",
+        "Score": 0.95
+      },
+      {
+        "Text": "React.js",
+        "Type": "SKILL",
+        "Score": 0.94
+      },
+      {
+        "Text": "HTML5",
+        "Type": "SKILL",
+        "Score": 0.9
+      },
+      {
+        "Text": "CSS3",
+        "Type": "SKILL",
+        "Score": 0.89
+      },
+      {
+        "Text": "Node.js",
+        "Type": "SKILL",
+        "Score": 0.92
+      },
+      {
+        "Text": "Express",
+        "Type": "SKILL",
+        "Score": 0.88
+      },
+      {
+        "Text": "Git",
+        "Type": "SKILL",
+        "Score": 0.91
+      },
+      {
+        "Text": "MongoDB",
+        "Type": "SKILL",
+        "Score": 0.87
+      }
+    ]
+  },
+  "normalized_candidate_record": {
+    "job_id": "job_2026_001",
+    "candidate_id": "cand_0003_sparse",
+    "source_s3_key": "jobs/job_2026_001/resumes/cand_0003_sparse/source.pdf",
+    "parsed_profile": {
+      "name": "AVERY TAYLOR",
+      "email": "avery.t.dev@example.org",
+      "phone": null,
+      "skills": [
+        "CSS",
+        "Express",
+        "Git",
+        "HTML",
+        "JavaScript",
+        "MongoDB",
+        "Node.js",
+        "REST APIs",
+        "React"
+      ],
+      "job_titles": [
+        "Frontend Engineer"
+      ],
+      "employers": [
+        "Pixelforge Studio"
+      ],
+      "experience_years": 2.0,
+      "links": {
+        "github": "https://github.com/averyt-dev"
+      },
+      "date_ranges": [
+        {
+          "raw_start": "usinesses\n2023",
+          "raw_end": "2024",
+          "start": "2023-01",
+          "end": "2024-12"
+        }
+      ],
+      "confidence": {
+        "overall": 0.92,
+        "name": 0.98,
+        "skills": 0.9,
+        "job_titles": 0.91,
+        "employers": 0.88
+      },
+      "flags": [
+        "MISSING_PHONE"
+      ]
+    },
+    "processing_status": "PARSED",
+    "version": 1,
+    "updated_at": "2026-09-14T05:35:27.968857+00:00"
+  }
+}

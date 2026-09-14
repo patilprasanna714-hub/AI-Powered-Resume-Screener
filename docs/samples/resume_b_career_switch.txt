@@ -1,0 +1,35 @@
+MARCUS CHEN
+Email: marcus.chen@example.com | Phone: +1 (555) 345-6789
+LinkedIn: https://linkedin.com/in/marcuschen-eng | GitHub: https://github.com/mchen-automation
+Location: Austin, TX
+
+PROFESSIONAL SUMMARY
+Analytical Mechanical Engineer transitioning into Cloud and DevOps Engineering with 5+ years of systems modeling, automation, and Python development experience. AWS Certified Solutions Architect (Associate) with practical project experience deploying containerized microservices and automated CI/CD pipelines. Strong aptitude for distributed cloud systems, scripting, and operational reliability.
+
+TECHNICAL SKILLS
+- Cloud: Amazon Web Services (AWS), AWS Lambda, Amazon S3, CloudWatch
+- Programming: Python, SQL, Bash
+- DevOps & Tools: Docker, Git, Linux, GitHub Actions, CI/CD
+- Engineering & Analysis: Finite Element Analysis, SCADA Systems, Statistical Modeling
+
+PROFESSIONAL EXPERIENCE
+Precision Dynamics Corp | Austin, TX
+Automation Systems Analyst / Mechanical Engineer
+March 2021 - Present
+- Designed automated telemetry data collection pipelines using Python, processing sensor logs into SQL databases.
+- Containerized internal testing tools using Docker, standardizing development environments across 15 engineers.
+- Architected personal cloud demonstration projects utilizing AWS Lambda, S3, and API Gateway to monitor equipment metrics.
+
+Apex Robotics | Dallas, TX
+Mechanical Engineer
+July 2019 - February 2021
+- Programmed robotic motion controllers and automated test suites with Python and Linux shell scripts.
+- Managed version control workflows using Git for multi-disciplinary hardware and software prototypes.
+- Documented testing procedures and reduced manual validation time by 40%.
+
+CERTIFICATIONS
+- AWS Certified Solutions Architect – Associate (2025)
+- Python Institute Certified Associate in Python Programming (PCAP)
+
+EDUCATION
+Bachelor of Science in Mechanical Engineering | Texas A&M University | 2015 - 2019

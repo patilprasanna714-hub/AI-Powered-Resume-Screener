@@ -1,0 +1,29 @@
+AVERY TAYLOR
+Email: avery.t.dev@example.org
+GitHub: https://github.com/averyt-dev
+Portfolio: https://averytaylor.dev
+
+ABOUT ME
+Creative Frontend Developer building web applications. Passionate about interactive UI, responsive layouts, and modern JavaScript frameworks. Open to junior cloud and web development opportunities.
+
+CORE COMPETENCIES
+JavaScript, React.js, HTML5, CSS3, Node.js, Express, Git, REST APIs, MongoDB
+
+PROJECTS & FREELANCE CONTRACTS
+
+Independent Web Developer
+Clients: Various Small Businesses
+2023 - 2024
+- Built single-page applications with React and Node.js.
+- Integrated RESTful backend endpoints and MongoDB data persistence.
+- Optimized frontend asset delivery and mobile responsiveness.
+
+Frontend Design Contractor
+Agency: PixelForge Studio
+2022
+- Developed customer-facing landing pages using JavaScript and CSS.
+- Maintained code repositories on GitHub and assisted with bug fixes.
+
+Community Tutoring & Volunteer Coding
+2021
+- Mentored beginners in basic web development and HTML/CSS fundamentals.

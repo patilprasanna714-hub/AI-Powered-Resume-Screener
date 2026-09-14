@@ -1,0 +1,200 @@
+{
+  "sample_type": "Resume B: Career-Switch Resume (Mechanical -> Cloud)",
+  "comprehend_raw_entities": {
+    "standard_entities": [
+      {
+        "Text": "MARCUS CHEN",
+        "Type": "PERSON",
+        "Score": 0.99,
+        "BeginOffset": 0,
+        "EndOffset": 11
+      },
+      {
+        "Text": "Austin, TX",
+        "Type": "LOCATION",
+        "Score": 0.94,
+        "BeginOffset": 150,
+        "EndOffset": 160
+      },
+      {
+        "Text": "Automation Systems Analyst",
+        "Type": "TITLE",
+        "Score": 0.93,
+        "BeginOffset": 620,
+        "EndOffset": 646
+      },
+      {
+        "Text": "Mechanical Engineer",
+        "Type": "TITLE",
+        "Score": 0.97,
+        "BeginOffset": 649,
+        "EndOffset": 668
+      },
+      {
+        "Text": "Precision Dynamics Corp",
+        "Type": "ORGANIZATION",
+        "Score": 0.96,
+        "BeginOffset": 590,
+        "EndOffset": 613
+      },
+      {
+        "Text": "Mechanical Engineer",
+        "Type": "TITLE",
+        "Score": 0.98,
+        "BeginOffset": 1050,
+        "EndOffset": 1069
+      },
+      {
+        "Text": "Apex Robotics",
+        "Type": "ORGANIZATION",
+        "Score": 0.97,
+        "BeginOffset": 1030,
+        "EndOffset": 1043
+      },
+      {
+        "Text": "March 2021 - Present",
+        "Type": "DATE",
+        "Score": 0.98,
+        "BeginOffset": 670,
+        "EndOffset": 690
+      },
+      {
+        "Text": "July 2019 - February 2021",
+        "Type": "DATE",
+        "Score": 0.97,
+        "BeginOffset": 1070,
+        "EndOffset": 1095
+      },
+      {
+        "Text": "Texas A&M University",
+        "Type": "ORGANIZATION",
+        "Score": 0.91,
+        "BeginOffset": 1400,
+        "EndOffset": 1420
+      }
+    ],
+    "custom_skill_entities": [
+      {
+        "Text": "AWS",
+        "Type": "SKILL",
+        "Score": 0.92
+      },
+      {
+        "Text": "AWS Lambda",
+        "Type": "SKILL",
+        "Score": 0.9
+      },
+      {
+        "Text": "Amazon S3",
+        "Type": "SKILL",
+        "Score": 0.91
+      },
+      {
+        "Text": "CloudWatch",
+        "Type": "SKILL",
+        "Score": 0.88
+      },
+      {
+        "Text": "Python",
+        "Type": "SKILL",
+        "Score": 0.99
+      },
+      {
+        "Text": "SQL",
+        "Type": "SKILL",
+        "Score": 0.92
+      },
+      {
+        "Text": "Docker",
+        "Type": "SKILL",
+        "Score": 0.94
+      },
+      {
+        "Text": "Git",
+        "Type": "SKILL",
+        "Score": 0.95
+      },
+      {
+        "Text": "Linux",
+        "Type": "SKILL",
+        "Score": 0.93
+      },
+      {
+        "Text": "CI/CD",
+        "Type": "SKILL",
+        "Score": 0.89
+      }
+    ]
+  },
+  "normalized_candidate_record": {
+    "job_id": "job_2026_001",
+    "candidate_id": "cand_0002_careerswitch",
+    "source_s3_key": "jobs/job_2026_001/resumes/cand_0002_careerswitch/source.pdf",
+    "parsed_profile": {
+      "name": "MARCUS CHEN",
+      "email": "marcus.chen@example.com",
+      "phone": "+1 (555) 345-6789",
+      "skills": [
+        "API Gateway",
+        "AWS",
+        "Bash",
+        "CI/CD",
+        "CloudWatch",
+        "Docker",
+        "Git",
+        "GitHub Actions",
+        "Lambda",
+        "Linux",
+        "Microservices",
+        "Python",
+        "S3",
+        "SQL",
+        "Shell Scripting"
+      ],
+      "job_titles": [
+        "Automation Systems Analyst",
+        "Mechanical Engineer"
+      ],
+      "employers": [
+        "Apex Robotics",
+        "Precision Dynamics Corp"
+      ],
+      "experience_years": 11.7,
+      "links": {
+        "linkedin": "https://linkedin.com/in/marcuschen-eng",
+        "github": "https://github.com/mchen-automation"
+      },
+      "date_ranges": [
+        {
+          "raw_start": "March 2021",
+          "raw_end": "Present",
+          "start": "2021-03",
+          "end": "2026-09"
+        },
+        {
+          "raw_start": "July 2019",
+          "raw_end": "February 2021",
+          "start": "2019-07",
+          "end": "2021-02"
+        },
+        {
+          "raw_start": "2015",
+          "raw_end": "2019",
+          "start": "2015-01",
+          "end": "2019-12"
+        }
+      ],
+      "confidence": {
+        "overall": 0.95,
+        "name": 0.99,
+        "skills": 0.9,
+        "job_titles": 0.96,
+        "employers": 0.96
+      },
+      "flags": []
+    },
+    "processing_status": "PARSED",
+    "version": 1,
+    "updated_at": "2026-09-14T05:35:06.609929+00:00"
+  }
+}
