@@ -1,0 +1,687 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  AI-Powered Resume Screener & Talent Acquisition Pipeline
+  Cloud-native serverless architecture combining Amazon Textract, Amazon Comprehend,
+  AWS Lambda, Amazon SQS, and Amazon DynamoDB.
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Deployment environment stage name.
+
+  LogLevel:
+    Type: String
+    Default: INFO
+    AllowedValues:
+      - DEBUG
+      - INFO
+      - WARNING
+      - ERROR
+    Description: Lambda logging verbosity level.
+
+  DefaultShortlistThreshold:
+    Type: Number
+    Default: 75
+    MinValue: 0
+    MaxValue: 100
+    Description: Default scoring percentage threshold for candidate shortlisting.
+
+  PresignedExpirySeconds:
+    Type: Number
+    Default: 900
+    MinValue: 60
+    MaxValue: 3600
+    Description: Expiration window for S3 pre-signed upload URLs in seconds.
+
+  HandoffMode:
+    Type: String
+    Default: s3_event
+    AllowedValues:
+      - s3_event
+      - direct_invocation
+    Description: Handoff mechanism between Ingestion Lambda and NLP Parser Lambda.
+
+Globals:
+  Function:
+    Timeout: 60
+    MemorySize: 512
+    Runtime: python3.13
+    Architectures:
+      - x86_64
+    Tracing: Active
+    Environment:
+      Variables:
+        POWERTOOLS_SERVICE_NAME: resume-screener
+        LOG_LEVEL: !Ref LogLevel
+
+Resources:
+  # ---------------------------------------------------------------------------
+  # S3 Storage: Resume Documents & Extracted Artifacts
+  # ---------------------------------------------------------------------------
+  ResumeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub resume-screener-${Environment}-${AWS::AccountId}-${AWS::Region}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+            AllowedOrigins:
+              - '*'
+            MaxAge: 3600
+
+  # ---------------------------------------------------------------------------
+  # DynamoDB Tables: Jobs, Candidates, Failed Jobs
+  # ---------------------------------------------------------------------------
+  JobsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub jobs-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: job_id
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+        - AttributeName: created_at
+          AttributeType: S
+      KeySchema:
+        - AttributeName: job_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: StatusCreatedAtIndex
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+            - AttributeName: created_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  CandidatesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub candidates-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: job_id
+          AttributeType: S
+        - AttributeName: candidate_id
+          AttributeType: S
+        - AttributeName: score_total
+          AttributeType: N
+      KeySchema:
+        - AttributeName: job_id
+          KeyType: HASH
+        - AttributeName: candidate_id
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: CandidateLookupIndex
+          KeySchema:
+            - AttributeName: candidate_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: JobScoreIndex
+          KeySchema:
+            - AttributeName: job_id
+              KeyType: HASH
+            - AttributeName: score_total
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  FailedJobsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub failed_jobs-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: failure_id
+          AttributeType: S
+        - AttributeName: job_id
+          AttributeType: S
+        - AttributeName: created_at
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+      KeySchema:
+        - AttributeName: failure_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: JobFailureIndex
+          KeySchema:
+            - AttributeName: job_id
+              KeyType: HASH
+            - AttributeName: created_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: StatusCreatedIndex
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+            - AttributeName: created_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  AuditEventsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub audit_events-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: entity_id
+          AttributeType: S
+        - AttributeName: timestamp_event_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: entity_id
+          KeyType: HASH
+        - AttributeName: timestamp_event_id
+          KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  # ---------------------------------------------------------------------------
+  # SQS Queues: Resume Scoring Queue & Dead Letter Queue (DLQ)
+  # ---------------------------------------------------------------------------
+  ResumeScoringDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub resume-scoring-dlq-${Environment}
+      MessageRetentionPeriod: 1209600 # 14 days
+
+  ResumeScoringQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub resume-scoring-queue-${Environment}
+      VisibilityTimeout: 180 # 6x Lambda timeout of 30s
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ResumeScoringDLQ.Arn
+        maxReceiveCount: 3
+
+  # ---------------------------------------------------------------------------
+  # API Gateway: HTTP API
+  # ---------------------------------------------------------------------------
+  ResumeScreenerApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Name: !Sub resume-screener-api-${Environment}
+      CorsConfiguration:
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - OPTIONS
+        AllowHeaders:
+          - '*'
+        AllowOrigins:
+          - '*'
+
+  # ---------------------------------------------------------------------------
+  # Lambda Function 1: Ingestion Lambda (Virajith)
+  # ---------------------------------------------------------------------------
+  IngestionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub resume-screener-ingestion-${Environment}
+      CodeUri: ..
+      Handler: ingestion_lambda.lambda_handler
+      Description: Validates uploaded resumes and extracts text via Amazon Textract / DOCX XML parser
+      Environment:
+        Variables:
+          CANDIDATES_TABLE_NAME: !Ref CandidatesTable
+          FAILED_JOBS_TABLE_NAME: !Ref FailedJobsTable
+          NLP_LAMBDA_NAME: !Sub resume-screener-nlp-${Environment}
+          HANDOFF_MODE: !Ref HandoffMode
+          PRESIGNED_EXPIRY_SECONDS: !Ref PresignedExpirySeconds
+          LOG_LEVEL: !Ref LogLevel
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Sub resume-screener-${Environment}-${AWS::AccountId}-${AWS::Region}
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CandidatesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FailedJobsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - textract:DetectDocumentText
+                - textract:StartDocumentTextDetection
+                - textract:GetDocumentTextDetection
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:resume-screener-nlp-${Environment}
+      Events:
+        UploadUrlApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ResumeScreenerApi
+            Path: /resumes/upload-url
+            Method: POST
+        DirectIngestApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ResumeScreenerApi
+            Path: /resumes/ingest
+            Method: POST
+
+  # ---------------------------------------------------------------------------
+  # Lambda Function 2: Comprehend NLP Parser Lambda (Sasi)
+  # ---------------------------------------------------------------------------
+  NlpParserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub resume-screener-nlp-${Environment}
+      CodeUri: ..
+      Handler: nlp_lambda.lambda_handler
+      Description: Extracts entities via Amazon Comprehend, normalizes skills/titles/dates, and masks PII
+      Environment:
+        Variables:
+          CANDIDATES_TABLE_NAME: !Ref CandidatesTable
+          FAILED_JOBS_TABLE_NAME: !Ref FailedJobsTable
+          SCORING_QUEUE_URL: !Ref ResumeScoringQueue
+          COMPREHEND_LANGUAGE_CODE: en
+          LOG_LEVEL: !Ref LogLevel
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Sub resume-screener-${Environment}-${AWS::AccountId}-${AWS::Region}
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CandidatesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FailedJobsTable
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt ResumeScoringQueue.QueueName
+        - Statement:
+            - Effect: Allow
+              Action:
+                - comprehend:DetectEntities
+                - comprehend:DetectKeyPhrases
+                - comprehend:DetectDominantLanguage
+              Resource: '*'
+      Events:
+        DirectParseApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ResumeScreenerApi
+            Path: /resumes/parse
+            Method: POST
+
+  # ---------------------------------------------------------------------------
+  # Lambda Function 3: Scoring Lambda (Chiranthan)
+  # ---------------------------------------------------------------------------
+  ScoringFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub resume-screener-scoring-${Environment}
+      CodeUri: ..
+      Handler: lambda_function.lambda_handler
+      Timeout: 30
+      Description: Consumes scoring jobs from SQS, evaluates match against JD, and writes explained scores
+      Environment:
+        Variables:
+          JOBS_TABLE_NAME: !Ref JobsTable
+          CANDIDATES_TABLE_NAME: !Ref CandidatesTable
+          FAILED_JOBS_TABLE_NAME: !Ref FailedJobsTable
+          DEFAULT_SHORTLIST_THRESHOLD: !Ref DefaultShortlistThreshold
+          LOG_LEVEL: !Ref LogLevel
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref JobsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CandidatesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FailedJobsTable
+        - SQSPollerPolicy:
+            QueueName: !GetAtt ResumeScoringQueue.QueueName
+      Events:
+        ScoringQueueTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ResumeScoringQueue.Arn
+            BatchSize: 10
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+
+  # ---------------------------------------------------------------------------
+  # Lambda Function 4: Reliability & Dead-Letter Redrive Lambda (Shashank)
+  # ---------------------------------------------------------------------------
+  ReliabilityFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub resume-screener-reliability-${Environment}
+      CodeUri: ..
+      Handler: reliability_lambda.lambda_handler
+      Description: Manages failed_jobs review, DLQ consumption, redrive orchestration, and audit trails
+      Environment:
+        Variables:
+          FAILED_JOBS_TABLE_NAME: !Ref FailedJobsTable
+          CANDIDATES_TABLE_NAME: !Ref CandidatesTable
+          AUDIT_EVENTS_TABLE_NAME: !Ref AuditEventsTable
+          SCORING_QUEUE_URL: !Ref ResumeScoringQueue
+          NLP_LAMBDA_NAME: !Sub resume-screener-nlp-${Environment}
+          INGESTION_LAMBDA_NAME: !Sub resume-screener-ingestion-${Environment}
+          LOG_LEVEL: !Ref LogLevel
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FailedJobsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CandidatesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AuditEventsTable
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt ResumeScoringQueue.QueueName
+        - SQSPollerPolicy:
+            QueueName: !GetAtt ResumeScoringDLQ.QueueName
+        - Statement:
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource:
+                - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:resume-screener-nlp-${Environment}
+                - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:resume-screener-ingestion-${Environment}
+      Events:
+        ListFailedJobsApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ResumeScreenerApi
+            Path: /failed-jobs
+            Method: GET
+        GetFailedJobApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ResumeScreenerApi
+            Path: /failed-jobs/{failureId}
+            Method: GET
+        RetryFailedJobApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ResumeScreenerApi
+            Path: /failed-jobs/{failureId}/retry
+            Method: POST
+        RegisterFailedJobApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ResumeScreenerApi
+            Path: /failed-jobs
+            Method: POST
+        DlqEventTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ResumeScoringDLQ.Arn
+            BatchSize: 5
+
+  # ---------------------------------------------------------------------------
+  # S3 Storage: Frontend Dashboard Hosting
+  # ---------------------------------------------------------------------------
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub resume-screener-dashboard-${Environment}-${AWS::AccountId}-${AWS::Region}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  # ---------------------------------------------------------------------------
+  # CloudWatch Alarms: Reliability, Latency & Failure Observability (Shashank)
+  # ---------------------------------------------------------------------------
+  DLQMessagesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub resume-screener-dlq-messages-${Environment}
+      AlarmDescription: Triggers when unrecoverable poison messages reach the Dead-Letter Queue (DLQ).
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt ResumeScoringDLQ.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  QueueOldestMessageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub resume-screener-queue-oldest-message-${Environment}
+      AlarmDescription: Triggers if scoring queue messages stall and backlog processing exceeds SLO (300s).
+      Namespace: AWS/SQS
+      MetricName: ApproximateAgeOfOldestMessage
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt ResumeScoringQueue.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 300
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
+  LambdaErrorsAlarmIngestion:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub resume-screener-ingestion-errors-${Environment}
+      AlarmDescription: Triggers on unhandled exceptions in the Ingestion Lambda.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref IngestionFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  LambdaErrorsAlarmNLP:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub resume-screener-nlp-errors-${Environment}
+      AlarmDescription: Triggers on unhandled exceptions in the NLP Parser Lambda.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref NlpParserFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  LambdaErrorsAlarmScoring:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub resume-screener-scoring-errors-${Environment}
+      AlarmDescription: Triggers on unhandled exceptions in the Scoring Lambda.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ScoringFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  LambdaErrorsAlarmReliability:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub resume-screener-reliability-errors-${Environment}
+      AlarmDescription: Triggers on unhandled exceptions in the Reliability & Redrive Lambda.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ReliabilityFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  # ---------------------------------------------------------------------------
+  # CloudWatch Operational Dashboard: Pipeline Health & SLOs (Shashank)
+  # ---------------------------------------------------------------------------
+  OperationalDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub resume-screener-operational-dashboard-${Environment}
+      DashboardBody: !Sub >
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "title": "Scoring Queue Depth vs DLQ Poison Messages",
+                "metrics": [
+                  [ "AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", "${ResumeScoringQueue.QueueName}", { "color": "#1f77b4" } ],
+                  [ ".", "ApproximateNumberOfMessagesNotVisible", ".", ".", { "color": "#aec7e8" } ],
+                  [ "AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", "${ResumeScoringDLQ.QueueName}", { "color": "#d62728" } ]
+                ],
+                "period": 60,
+                "stat": "Maximum",
+                "region": "${AWS::Region}",
+                "view": "timeSeries"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "title": "Lambda Function Invocations & Errors",
+                "metrics": [
+                  [ "AWS/Lambda", "Invocations", "FunctionName", "${IngestionFunction}" ],
+                  [ ".", "Errors", ".", ".", { "color": "#d62728" } ],
+                  [ "AWS/Lambda", "Invocations", "FunctionName", "${NlpParserFunction}" ],
+                  [ ".", "Errors", ".", ".", { "color": "#ff7f0e" } ],
+                  [ "AWS/Lambda", "Invocations", "FunctionName", "${ScoringFunction}" ],
+                  [ ".", "Errors", ".", ".", { "color": "#2ca02c" } ],
+                  [ "AWS/Lambda", "Invocations", "FunctionName", "${ReliabilityFunction}" ],
+                  [ ".", "Errors", ".", ".", { "color": "#9467bd" } ]
+                ],
+                "period": 60,
+                "stat": "Sum",
+                "region": "${AWS::Region}",
+                "view": "timeSeries"
+              }
+            }
+          ]
+        }
+
+Outputs:
+  ApiEndpointUrl:
+    Description: Base URL for Resume Screener HTTP API Gateway
+    Value: !Sub https://${ResumeScreenerApi}.execute-api.${AWS::Region}.amazonaws.com
+    Export:
+      Name: !Sub ${AWS::StackName}-ApiEndpointUrl
+
+  ResumeBucketName:
+    Description: S3 Bucket Name for uploaded resumes and extracted text
+    Value: !Ref ResumeBucket
+    Export:
+      Name: !Sub ${AWS::StackName}-ResumeBucketName
+
+  JobsTableName:
+    Description: DynamoDB Table Name for Job Requirements
+    Value: !Ref JobsTable
+    Export:
+      Name: !Sub ${AWS::StackName}-JobsTableName
+
+  CandidatesTableName:
+    Description: DynamoDB Table Name for Candidate Records
+    Value: !Ref CandidatesTable
+    Export:
+      Name: !Sub ${AWS::StackName}-CandidatesTableName
+
+  FailedJobsTableName:
+    Description: DynamoDB Table Name for Dead-lettered & Failed Jobs
+    Value: !Ref FailedJobsTable
+    Export:
+      Name: !Sub ${AWS::StackName}-FailedJobsTableName
+
+  AuditEventsTableName:
+    Description: DynamoDB Table Name for System and Recruiter Audit Events
+    Value: !Ref AuditEventsTable
+    Export:
+      Name: !Sub ${AWS::StackName}-AuditEventsTableName
+
+  ScoringQueueUrl:
+    Description: SQS Queue URL for candidate scoring jobs
+    Value: !Ref ResumeScoringQueue
+    Export:
+      Name: !Sub ${AWS::StackName}-ScoringQueueUrl
+
+  ScoringDLQUrl:
+    Description: SQS Dead-Letter Queue URL for failed scoring events
+    Value: !Ref ResumeScoringDLQ
+    Export:
+      Name: !Sub ${AWS::StackName}-ScoringDLQUrl
+
+  FrontendBucketName:
+    Description: S3 Bucket Name for Recruiter Dashboard build assets
+    Value: !Ref FrontendBucket
+    Export:
+      Name: !Sub ${AWS::StackName}-FrontendBucketName
+
+  OperationalDashboardName:
+    Description: CloudWatch Operational Dashboard Name
+    Value: !Ref OperationalDashboard
+    Export:
+      Name: !Sub ${AWS::StackName}-OperationalDashboardName
+
+  ReliabilityFunctionArn:
+    Description: ARN for Reliability and Dead-Letter Redrive Lambda
+    Value: !GetAtt ReliabilityFunction.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-ReliabilityFunctionArn
+

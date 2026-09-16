@@ -145,3 +145,5 @@ vite.config.ts.timestamp-*
 WORKFLOW.md
 test_scoring.py
 __pycache__
+.aws-sam/
+frontend/dist/

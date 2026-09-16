@@ -52,22 +52,59 @@ AI-powered recruitment pipeline using AWS Textract, Amazon Comprehend, AWS Lambd
 
 ---
 
+## Shashank's Module: DynamoDB, DevOps, Reliability & QA
+
+### Responsibilities:
+1. **DynamoDB Data Layer**:
+   - Codified all 4 operational tables (`jobs`, `candidates`, `failed_jobs`, `audit_events`) with complete Global Secondary Indexes (GSIs), Point-in-Time Recovery (PITR), and encryption at rest.
+2. **Reliability & Dead-Letter Redrive**:
+   - Automated Dead-Letter Queue (DLQ) consumer capturing poison messages after retry exhaustion (`maxReceiveCount: 3`).
+   - Built self-healing redrive service (`POST /failed-jobs/{failureId}/retry` and `GET /failed-jobs`) with stage-specific re-dispatch (`SCORING`, `NLP_PARSING`, `INGESTION_TEXTRACT`) and immutable audit trails in `audit_events`.
+   - Implemented bounded retry limits (`MAX_REDRIVE_ATTEMPTS = 5`) and automatic PII sanitization across logs and database records.
+3. **CloudWatch Observability & Alarms**:
+   - Provisioned real-time CloudWatch alarms for DLQ messages, queue age SLO breaches (>300s), and Lambda execution errors across all functions.
+   - Codified an operational dashboard (`resume-screener-operational-dashboard`) tracking queue depths, Lambda durations, errors, and DynamoDB metrics.
+4. **DevOps Automation & QA**:
+   - Authored one-click deployment and teardown scripts (`deploy.ps1`, `deploy.sh`, `teardown.ps1`, `teardown.sh`) and GitHub Actions CI/CD workflows.
+   - Implemented 29 specialized QA tests covering reliability, security compliance, burst load, and resilience.
+
+---
+
 ## Directory Structure
 ```
 ├── textract_processor.py           # Virajith: Textract OCR, section spacing & DOCX parser
 ├── ingestion_lambda.py             # Virajith: AWS Lambda handler (ingestion-lambda)
-├── services/
-│   ├── ingestion/
-│   │   └── lambda_function.py      # Virajith: Modular Ingestion Lambda entry point
-│   └── nlp-parser/
-│       └── lambda_function.py      # Sasi: Modular NLP Parser Lambda entry point
 ├── nlp_parser.py                   # Sasi: Pure NLP parser, normalization & date math
 ├── nlp_lambda.py                   # Sasi: AWS Lambda handler (nlp-parser-lambda)
 ├── lambda_function.py              # Chiranthan: Scoring Lambda (scoring-lambda)
 ├── scoring_logic.py                # Chiranthan: Deterministic scoring formulas
 ├── jd_parser.py                    # Chiranthan: JD requirement extractor
 ├── sqs_producer.py                 # Chiranthan: SQS enqueue helper
+├── reliability_lambda.py           # Shashank: AWS Lambda handler (reliability & redrive)
+├── services/
+│   ├── ingestion/
+│   │   └── lambda_function.py      # Virajith: Modular Ingestion Lambda entry point
+│   ├── nlp-parser/
+│   │   └── lambda_function.py      # Sasi: Modular NLP Parser Lambda entry point
+│   ├── scoring/
+│   │   └── lambda_function.py      # Chiranthan: Modular Scoring Lambda entry point
+│   └── reliability/
+│       ├── __init__.py             # Shashank: Reliability module package
+│       ├── failed_jobs_service.py  # Shashank: Failure tracking, DLQ consumer & redrive logic
+│       └── lambda_function.py      # Shashank: Modular Reliability Lambda entry point
+├── infrastructure/                 # Shashank / Shared: IaC & Deployment Automation
+│   ├── template.yaml               # AWS SAM template (S3, DynamoDB, SQS, Lambdas, API Gateway, Alarms, Dashboard)
+│   ├── samconfig.toml              # SAM deployment configuration for ap-south-1
+│   ├── deploy.ps1                  # One-click Windows PowerShell deployment script
+│   ├── deploy.sh                   # Linux/macOS/CI Bash deployment script
+│   ├── teardown.ps1                # Clean resource teardown script (Windows)
+│   └── teardown.sh                 # Clean resource teardown script (Linux)
+├── .github/workflows/
+│   ├── ci.yml                      # CI: Automated tests and frontend linting
+│   └── deploy.yml                  # CD: Automated deployment to AWS on push
 ├── docs/
+│   ├── DEPLOYMENT_GUIDE.md         # Comprehensive AWS cloud deployment & operations guide
+│   ├── RELIABILITY_AND_QA_EVIDENCE.md # Shashank: Reliability, monitoring & QA test evidence report
 │   ├── normalized_parser_schema.json  # Sasi: JSON Schema draft-07 specification
 │   ├── nlp_schema.md                  # Sasi: Detailed data dictionary & contracts
 │   ├── TEAM_INTEGRATION_GUIDE.md      # Sasi: Handoff specs for all 5 teammates
@@ -83,14 +120,48 @@ AI-powered recruitment pipeline using AWS Textract, Amazon Comprehend, AWS Lambd
 │   ├── test_ingestion_lambda.py    # 7 unit tests for Ingestion Lambda, S3 events & pre-signed URLs
 │   ├── test_nlp_parser.py          # 14 unit tests for NLP parsing & scoring compatibility
 │   ├── test_nlp_lambda.py          # 6 unit tests for Lambda handling, DynamoDB & SQS
-│   └── test_end_to_end_pipeline.py # End-to-end integration tests (Ingestion -> NLP -> Scoring)
-└── frontend/                       # Prasanna: React dashboard
+│   ├── test_end_to_end_pipeline.py # 2 integration tests (Ingestion -> NLP -> Scoring)
+│   ├── test_reliability.py         # 16 unit & integration tests for failed_jobs, DLQ & redrive
+│   ├── test_security_audit.py      # 8 security tests for S3 blocks, encryption, IAM & PII masking
+│   └── test_load_and_resilience.py # 5 resilience tests for burst load, partial failures & retry limits
+└── frontend/                       # Prasanna: React dashboard (Vite + React 19)
 ```
 
 ---
 
 ## Running Tests
-Run all unit and integration tests with Python's built-in `unittest` runner (zero external dependencies needed):
+Run all 68 unit, integration, reliability, security, and resilience tests with Python's built-in `unittest` runner:
 ```bash
 python -m unittest discover tests -v
 ```
+
+---
+
+## Deployment to AWS
+
+The project includes an AWS SAM infrastructure stack and automated deployment scripts.
+
+### One-Click Deployment (Windows PowerShell)
+```powershell
+.\infrastructure\deploy.ps1 -Environment dev -Region ap-south-1
+```
+
+### One-Click Deployment (Linux / macOS)
+```bash
+chmod +x infrastructure/deploy.sh
+./infrastructure/deploy.sh dev ap-south-1
+```
+
+### Automated GitHub Actions CI/CD
+Deployments are continuously delivered via [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) on push to the `main` branch or manual `workflow_dispatch`.
+
+For full deployment details, environment variables checklist, and post-deployment smoke tests, see the [Cloud Deployment Guide](docs/DEPLOYMENT_GUIDE.md).
+
+---
+
+## Resource Teardown
+To safely delete the CloudFormation stack and empty all S3 storage buckets:
+```powershell
+.\infrastructure\teardown.ps1 -Environment dev -Region ap-south-1
+```
+
