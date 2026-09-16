@@ -2,11 +2,51 @@ import { useMemo, useRef, useState } from 'react'
 import './App.css'
 
 const initialCandidates = [
-  { id: 1, name: 'Olivia Bennett', initials: 'OB', color: 'violet', role: 'Senior Product Designer', experience: '6 years', skills: ['Figma', 'Design Systems', 'UX Research'], score: 94, status: 'Shortlisted' },
-  { id: 2, name: 'Marcus Thompson', initials: 'MT', color: 'blue', role: 'Frontend Engineer', experience: '5 years', skills: ['React', 'TypeScript', 'GraphQL'], score: 91, status: 'Interview' },
-  { id: 3, name: 'Sophia Rodriguez', initials: 'SR', color: 'orange', role: 'Product Manager', experience: '8 years', skills: ['Agile', 'Roadmapping', 'B2B SaaS'], score: 88, status: 'Reviewing' },
-  { id: 4, name: 'Ethan Williams', initials: 'EW', color: 'green', role: 'Senior Frontend Engineer', experience: '7 years', skills: ['React', 'Next.js', 'Node.js'], score: 86, status: 'New' },
-  { id: 5, name: 'Ava Patel', initials: 'AP', color: 'pink', role: 'UX Researcher', experience: '4 years', skills: ['User Testing', 'Interviews', 'Figma'], score: 82, status: 'Reviewing' },
+  {
+    id: 1,
+    parsed_profile: {
+      name: "SARAH JENKINS",
+      email: "sarah.jenkins@example.com",
+      phone: "+1 (555) 234-5678",
+      skills: [
+        "API Gateway",
+        "AWS",
+        "Bash",
+        "CI/CD",
+        "CloudWatch",
+        "Docker",
+        "DynamoDB",
+        "Git",
+        "GitHub Actions",
+        "Jenkins",
+        "Lambda",
+        "Linux",
+        "Microservices",
+        "Python",
+        "REST APIs",
+        "S3",
+        "SQL",
+        "SQS",
+        "Serverless",
+        "Terraform"
+      ],
+      job_titles: [
+        "Cloud Engineer",
+        "Cloud Support Associate",
+        "Systems Engineer"
+      ],
+      experience_years: 9.7,
+      links: {
+        linkedin: "https://linkedin.com/in/sarahjenkins-cloud",
+        github: "https://github.com/sjenkins-dev"
+      },
+      confidence: {
+        overall: 0.95
+      },
+      flags: []
+    },
+    status: "New"
+  }
 ]
 
 const jobs = [
@@ -47,24 +87,75 @@ function App() {
   const [uploadedFile, setUploadedFile] = useState('')
   const fileInputRef = useRef(null)
 
-  const filteredCandidates = useMemo(() => candidates.filter((candidate) => {
-    const searchMatch = `${candidate.name} ${candidate.role} ${candidate.skills.join(' ')}`.toLowerCase().includes(search.toLowerCase())
-    const statusMatch = statusFilter === 'All statuses' || candidate.status === statusFilter
-    return searchMatch && statusMatch
-  }), [candidates, search, statusFilter])
+ const filteredCandidates = useMemo(() => candidates.filter((candidate) => {
+  const profile = candidate.parsed_profile || {}
+
+  const searchText = [
+    profile.name,
+    ...(profile.job_titles || []),
+    ...(profile.skills || []),
+    profile.email,
+    profile.phone
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+
+  const searchMatch = searchText.includes(search.toLowerCase())
+  const statusMatch =
+    statusFilter === 'All statuses' || candidate.status === statusFilter
+
+  return searchMatch && statusMatch
+}), [candidates, search, statusFilter])
 
   const updateStatus = (id, status) => setCandidates((current) => current.map((candidate) => candidate.id === id ? { ...candidate, status } : candidate))
 
-  const downloadCsv = () => {
-    const rows = [['Candidate', 'Applied role', 'Experience', 'Skills', 'AI match score', 'Status'], ...candidates.map((candidate) => [candidate.name, candidate.role, candidate.experience, candidate.skills.join('; '), `${candidate.score}%`, candidate.status])]
-    const csv = rows.map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(',')).join('\n')
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
-    link.download = 'talentflow-shortlist.csv'
-    link.click()
-    URL.revokeObjectURL(link.href)
-  }
+ const downloadCsv = () => {
+  const rows = [
+    [
+      'Candidate',
+      'Job Titles',
+      'Experience',
+      'Skills',
+      'Email',
+      'Phone',
+      'Confidence',
+      'Flags',
+      'Status'
+    ],
+    ...candidates.map((candidate) => {
+      const profile = candidate.parsed_profile || {}
 
+      return [
+        profile.name || '',
+        (profile.job_titles || []).join(' / '),
+        profile.experience_years != null
+          ? `${profile.experience_years} yrs`
+          : '',
+        (profile.skills || []).join(' / '),
+        profile.email || '',
+        profile.phone || '',
+        profile.confidence?.overall != null
+          ? `${Math.round(profile.confidence.overall * 100)}%`
+          : '',
+        (profile.flags || []).join(' / '),
+        candidate.status || ''
+      ]
+    })
+  ]
+
+  const csv = rows
+    .map((row) =>
+      row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')
+    )
+    .join('\n')
+
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+  link.download = 'talentflow-shortlist.csv'
+  link.click()
+  URL.revokeObjectURL(link.href)
+}
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -87,7 +178,118 @@ function App() {
 
           <div className="section-grid"><section className="panel jobs-panel"><div className="panel-heading"><div><h2>Active jobs</h2><p>Track your open roles and applications</p></div><button className="text-button">View all <span>→</span></button></div><div className="job-list">{jobs.map((job) => <div className="job-row" key={job.title}><div className={`job-icon ${job.color}`}><Icon name="briefcase" size={17} /></div><div className="job-info"><strong>{job.title}</strong><span>{job.department} · {job.location}</span></div><div className="job-progress"><div><span>{job.applicants} applicants</span><b>{job.progress}%</b></div><div className="progress-track"><i className={job.color} style={{ width: `${job.progress}%` }} /></div></div></div>)}</div></section><section className="panel upload-panel"><div className="upload-heading"><div className="upload-orb"><Icon name="upload" size={20} /></div><div><h2>Screen a resume</h2><p>Upload a file to get an instant AI match</p></div></div><button className="dropzone" onClick={() => fileInputRef.current?.click()}><Icon name="upload" size={21} /><strong>{uploadedFile || 'Drop a resume here'}</strong><span>{uploadedFile ? 'Ready to screen' : 'PDF or DOCX · max 10MB'}</span></button><input ref={fileInputRef} hidden type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(event) => setUploadedFile(event.target.files?.[0]?.name || '')} /></section></div>
 
-          <section className="panel candidates-panel"><div className="panel-heading candidate-heading"><div><h2>Candidate pipeline</h2><p>Review and manage your latest applicants</p></div><button className="outline-button" onClick={downloadCsv}><Icon name="download" size={16} /> Download shortlist CSV</button></div><div className="table-toolbar"><label className="search-field"><Icon name="search" size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search candidates..." /></label><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter candidates by status"><option>All statuses</option><option>New</option><option>Reviewing</option><option>Interview</option><option>Shortlisted</option><option>Rejected</option></select><span className="result-count">{filteredCandidates.length} of {candidates.length} candidates</span></div><div className="table-wrap"><table><thead><tr><th>Candidate</th><th>Applied role</th><th>Experience</th><th>Extracted skills</th><th>AI match</th><th>Status</th><th>Actions</th></tr></thead><tbody>{filteredCandidates.map((candidate) => <tr key={candidate.id}><td><div className="candidate-name"><div className={`avatar ${candidate.color}`}>{candidate.initials}</div><strong>{candidate.name}</strong></div></td><td>{candidate.role}</td><td>{candidate.experience}</td><td><div className="skill-list">{candidate.skills.slice(0, 2).map((skill) => <span key={skill}>{skill}</span>)}{candidate.skills.length > 2 && <small>+{candidate.skills.length - 2}</small>}</div></td><td><div className="score"><div className="score-ring" style={{ '--score': `${candidate.score * 3.6}deg` }}><span>{candidate.score}</span></div><small>/100</small></div></td><td><span className={`status ${candidate.status.toLowerCase()}`}>{candidate.status}</span></td><td><div className="row-actions"><button className="shortlist-button" onClick={() => updateStatus(candidate.id, 'Shortlisted')} disabled={candidate.status === 'Shortlisted'}>Shortlist</button><button className="reject-button" onClick={() => updateStatus(candidate.id, 'Rejected')} disabled={candidate.status === 'Rejected'}>Reject</button></div></td></tr>)}</tbody></table></div></section>
+          <section className="panel candidates-panel"><div className="panel-heading candidate-heading"><div><h2>Candidate pipeline</h2><p>Review and manage your latest applicants</p></div><button className="outline-button" onClick={downloadCsv}><Icon name="download" size={16} /> Download shortlist CSV</button></div><div className="table-toolbar"><label className="search-field"><Icon name="search" size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search candidates..." /></label><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter candidates by status"><option>All statuses</option><option>New</option><option>Reviewing</option><option>Interview</option><option>Shortlisted</option><option>Rejected</option></select><span className="result-count">{filteredCandidates.length} of {candidates.length} candidates</span></div><div className="table-wrap"><table><thead><tr><th>Candidate</th><th>Applied role</th><th>Experience</th><th>Extracted skills</th><th>AI match</th><th>Status</th><th>Actions</th></tr></thead><tbody>{filteredCandidates.map((candidate) => {
+  const profile = candidate.parsed_profile || {}
+  const confidence = profile.confidence?.overall != null
+    ? Math.round(profile.confidence.overall * 100)
+    : null
+
+  return (
+  <tr key={candidate.id}>
+    <td>
+      <div className="candidate-name">
+        <div className="avatar cyan">
+          {(profile.name || 'NA')
+            .split(' ')
+            .map((part) => part[0])
+            .join('')
+            .slice(0, 2)}
+        </div>
+        <div>
+          <strong>{profile.name || 'Unknown Candidate'}</strong>
+          <small>{profile.email || 'No email'}</small>
+          <small>{profile.phone || 'No phone'}</small>
+        </div>
+      </div>
+    </td>
+
+    <td>
+      {(profile.job_titles || []).length
+        ? profile.job_titles.join(' / ')
+        : 'Not available'}
+      <div>
+        {profile.links?.linkedin && (
+          <a href={profile.links.linkedin} target="_blank" rel="noreferrer">
+            LinkedIn
+          </a>
+        )}
+        {profile.links?.linkedin && profile.links?.github && ' · '}
+        {profile.links?.github && (
+          <a href={profile.links.github} target="_blank" rel="noreferrer">
+            GitHub
+          </a>
+        )}
+      </div>
+    </td>
+
+    <td>
+      {profile.experience_years != null
+        ? `${profile.experience_years} yrs`
+        : 'N/A'}
+    </td>
+
+    <td>
+      <div className="skill-list">
+        {(profile.skills || []).slice(0, 4).map((skill) => (
+          <span key={skill}>{skill}</span>
+        ))}
+        {(profile.skills || []).length > 4 && (
+          <small>+{profile.skills.length - 4}</small>
+        )}
+      </div>
+
+      {(profile.flags || []).length > 0 && (
+        <div className="skill-list">
+          {profile.flags.map((flag) => (
+            <span key={flag}>{flag}</span>
+          ))}
+        </div>
+      )}
+    </td>
+
+    <td>
+      <div className="score">
+        <div
+          className="score-ring"
+          style={{ '--score': `${(confidence ?? 0) * 3.6}deg` }}
+        >
+          <span>{confidence != null ? `${confidence}%` : 'N/A'}</span>
+        </div>
+      </div>
+    </td>
+
+    <td>
+      <span className={`status ${(candidate.status || 'New').toLowerCase()}`}>
+        {candidate.status || 'New'}
+      </span>
+    </td>
+
+    <td>
+      <div className="row-actions">
+        <button
+          className="shortlist-button"
+          onClick={() => updateStatus(candidate.id, 'Shortlisted')}
+          disabled={candidate.status === 'Shortlisted'}
+        >
+          Shortlist
+        </button>
+
+        <button
+          className="reject-button"
+          onClick={() => updateStatus(candidate.id, 'Rejected')}
+          disabled={candidate.status === 'Rejected'}
+        >
+          Reject
+        </button>
+      </div>
+    </td>
+  </tr>
+)
+})}
+</tbody>
+</table>
+</div>
+</section>
           <footer><span>TalentLens AI · Pipeline overview</span><span>Last synced a few seconds ago <i /></span></footer>
         </div>
       </main>
