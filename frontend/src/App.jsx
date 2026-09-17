@@ -85,12 +85,52 @@ function Icon({ name, size = 18 }) {
 
 function App() {
   const [candidates, setCandidates] = useState(initialCandidates)
+  const [apiJobs, setApiJobs] = useState([])
+const [selectedJobId, setSelectedJobId] = useState(null)
+const [apiLoading, setApiLoading] = useState(false)
+const [apiError, setApiError] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('All statuses')
   const [activePage, setActivePage] = useState('Dashboard')
   const [uploadedFile, setUploadedFile] = useState('')
   const fileInputRef = useRef(null)
+useEffect(() => {
+  const apiUrl = import.meta.env.VITE_API_BASE_URL
 
+  if (!apiUrl) return
+
+  const loadJobs = async () => {
+    try {
+      setApiLoading(true)
+      setApiError('')
+
+      const response = await getJobs()
+      const data = await response.json()
+
+      const jobList = Array.isArray(data)
+        ? data
+        : data.jobs || data.items || []
+
+      setApiJobs(jobList)
+
+      if (jobList.length > 0) {
+        const firstJobId =
+          jobList[0].job_id ||
+          jobList[0].jobId ||
+          jobList[0].id
+
+        setSelectedJobId(firstJobId)
+      }
+    } catch (error) {
+      console.error('Failed to load jobs:', error)
+      setApiError('Unable to load jobs')
+    } finally {
+      setApiLoading(false)
+    }
+  }
+
+  loadJobs()
+}, [])
  const filteredCandidates = useMemo(() => candidates.filter((candidate) => {
   const profile = candidate.parsed_profile || {}
 
