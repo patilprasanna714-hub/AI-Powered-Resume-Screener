@@ -70,6 +70,27 @@ AI-powered recruitment pipeline using AWS Textract, Amazon Comprehend, AWS Lambd
 
 ---
 
+### Aryan's Module: Backend APIs, Cognito Auth & SES Notifications
+
+### Responsibilities:
+1. **RESTful Service Layer (`services/api/candidate_service.py`)**:
+   - Manages job requisition CRUD operations (`GET /jobs`, `POST /jobs`, `GET /jobs/{jobId}`).
+   - Provides sorted candidate roster querying with status, decision, and score threshold filters (`GET /jobs/{jobId}/candidates`).
+   - Retrieves single candidate profile, normalized skills, and score breakdown conforming to `nlp_schema.md` (`GET /jobs/{jobId}/candidates/{candidateId}`).
+   - Records recruiter decisions (`SHORTLIST`, `INTERVIEW`, `REJECT`, `HIRED`) with immutable audit trails in `audit_events` (`PATCH /jobs/{jobId}/candidates/{candidateId}`).
+   - Generates RFC-4180 compliant CSV shortlist export files (`GET /jobs/{jobId}/shortlist.csv`).
+2. **Cognito Authentication & RBAC (`services/api/auth.py`)**:
+   - Provisions `CognitoUserPool` and `CognitoUserPoolClient` in AWS SAM.
+   - Enforces JWT validation, audience check, and role mapping (`Admin`, `Recruiter`, `Reviewer`) via `cognito:groups`.
+3. **Amazon SES Notifications (`services/api/notifications.py`)**:
+   - Formats and sends automated transactional emails for interview invitations, application closures, and recruiter match alerts (`POST /notifications/send`).
+   - Enforces zero plain-text PII in CloudWatch logs by redacting candidate emails and phone numbers.
+4. **API Gateway & IaC (`infrastructure/template.yaml`)**:
+   - Provisions `ApiFunction` routing all 8 HTTP routes with standardized CORS headers.
+   - Configures CloudWatch error alarm `resume-screener-api-errors` and operational dashboard metrics.
+
+---
+
 ## Directory Structure
 ```
 ├── textract_processor.py           # Virajith: Textract OCR, section spacing & DOCX parser
@@ -81,6 +102,7 @@ AI-powered recruitment pipeline using AWS Textract, Amazon Comprehend, AWS Lambd
 ├── jd_parser.py                    # Chiranthan: JD requirement extractor
 ├── sqs_producer.py                 # Chiranthan: SQS enqueue helper
 ├── reliability_lambda.py           # Shashank: AWS Lambda handler (reliability & redrive)
+├── api_lambda.py                   # Aryan: AWS Lambda handler (api-backend)
 ├── services/
 │   ├── ingestion/
 │   │   └── lambda_function.py      # Virajith: Modular Ingestion Lambda entry point
@@ -88,12 +110,18 @@ AI-powered recruitment pipeline using AWS Textract, Amazon Comprehend, AWS Lambd
 │   │   └── lambda_function.py      # Sasi: Modular NLP Parser Lambda entry point
 │   ├── scoring/
 │   │   └── lambda_function.py      # Chiranthan: Modular Scoring Lambda entry point
-│   └── reliability/
-│       ├── __init__.py             # Shashank: Reliability module package
-│       ├── failed_jobs_service.py  # Shashank: Failure tracking, DLQ consumer & redrive logic
-│       └── lambda_function.py      # Shashank: Modular Reliability Lambda entry point
-├── infrastructure/                 # Shashank / Shared: IaC & Deployment Automation
-│   ├── template.yaml               # AWS SAM template (S3, DynamoDB, SQS, Lambdas, API Gateway, Alarms, Dashboard)
+│   ├── reliability/
+│   │   ├── __init__.py             # Shashank: Reliability module package
+│   │   ├── failed_jobs_service.py  # Shashank: Failure tracking, DLQ consumer & redrive logic
+│   │   └── lambda_function.py      # Shashank: Modular Reliability Lambda entry point
+│   └── api/
+│       ├── __init__.py             # Aryan: API module package
+│       ├── auth.py                 # Aryan: Cognito authentication, JWT verification & RBAC
+│       ├── candidate_service.py    # Aryan: Job & candidate queries, decisions & CSV export
+│       ├── notifications.py        # Aryan: SES email notifications & PII masking
+│       └── lambda_function.py      # Aryan: Modular API Lambda entry point
+├── infrastructure/                 # Shashank / Aryan / Shared: IaC & Deployment Automation
+│   ├── template.yaml               # AWS SAM template (S3, DynamoDB, SQS, Cognito, Lambdas, API Gateway, Alarms, Dashboard)
 │   ├── samconfig.toml              # SAM deployment configuration for ap-south-1
 │   ├── deploy.ps1                  # One-click Windows PowerShell deployment script
 │   ├── deploy.sh                   # Linux/macOS/CI Bash deployment script
@@ -103,6 +131,7 @@ AI-powered recruitment pipeline using AWS Textract, Amazon Comprehend, AWS Lambd
 │   ├── ci.yml                      # CI: Automated tests and frontend linting
 │   └── deploy.yml                  # CD: Automated deployment to AWS on push
 ├── docs/
+│   ├── API_AND_AUTH_GUIDE.md       # Aryan: Comprehensive Backend APIs, Cognito Auth & SES guide
 │   ├── DEPLOYMENT_GUIDE.md         # Comprehensive AWS cloud deployment & operations guide
 │   ├── RELIABILITY_AND_QA_EVIDENCE.md # Shashank: Reliability, monitoring & QA test evidence report
 │   ├── normalized_parser_schema.json  # Sasi: JSON Schema draft-07 specification
@@ -123,14 +152,17 @@ AI-powered recruitment pipeline using AWS Textract, Amazon Comprehend, AWS Lambd
 │   ├── test_end_to_end_pipeline.py # 2 integration tests (Ingestion -> NLP -> Scoring)
 │   ├── test_reliability.py         # 16 unit & integration tests for failed_jobs, DLQ & redrive
 │   ├── test_security_audit.py      # 8 security tests for S3 blocks, encryption, IAM & PII masking
-│   └── test_load_and_resilience.py # 5 resilience tests for burst load, partial failures & retry limits
+│   ├── test_load_and_resilience.py # 5 resilience tests for burst load, partial failures & retry limits
+│   ├── test_api_lambda.py          # 13 unit tests for REST API routing, decisions & CSV shortlist export
+│   ├── test_cognito_auth.py        # 7 unit tests for Cognito JWT claims, tokens & RBAC
+│   └── test_ses_notifications.py   # 6 unit tests for SES email dispatching & PII masking
 └── frontend/                       # Prasanna: React dashboard (Vite + React 19)
 ```
 
 ---
 
 ## Running Tests
-Run all 68 unit, integration, reliability, security, and resilience tests with Python's built-in `unittest` runner:
+Run all 94 unit, integration, reliability, security, and resilience tests with Python's built-in `unittest` runner:
 ```bash
 python -m unittest discover tests -v
 ```

@@ -47,6 +47,11 @@ Parameters:
       - direct_invocation
     Description: Handoff mechanism between Ingestion Lambda and NLP Parser Lambda.
 
+  SesSourceEmail:
+    Type: String
+    Default: noreply@talent-screener.internal
+    Description: Verified sender email address for Amazon SES candidate and recruiter notifications.
+
 Globals:
   Function:
     Timeout: 60
@@ -239,6 +244,7 @@ Resources:
           - GET
           - POST
           - PUT
+          - PATCH
           - OPTIONS
         AllowHeaders:
           - '*'
@@ -441,6 +447,124 @@ Resources:
             BatchSize: 5
 
   # ---------------------------------------------------------------------------
+  # Cognito Authentication: User Pool & Client (Aryan)
+  # ---------------------------------------------------------------------------
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub resume-screener-users-${Environment}
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Mutable: true
+          Required: true
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub resume-screener-client-${Environment}
+      UserPoolId: !Ref CognitoUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+
+  # ---------------------------------------------------------------------------
+  # Lambda Function 5: Backend APIs & SES Notifications (Aryan)
+  # ---------------------------------------------------------------------------
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub resume-screener-api-backend-${Environment}
+      CodeUri: ..
+      Handler: api_lambda.lambda_handler
+      Description: REST API backend for candidate pipelines, job requisitions, recruiter decisions, and SES notifications
+      Environment:
+        Variables:
+          JOBS_TABLE_NAME: !Ref JobsTable
+          CANDIDATES_TABLE_NAME: !Ref CandidatesTable
+          AUDIT_EVENTS_TABLE_NAME: !Ref AuditEventsTable
+          USER_POOL_ID: !Ref CognitoUserPool
+          USER_POOL_CLIENT_ID: !Ref CognitoUserPoolClient
+          SES_SOURCE_EMAIL: !Ref SesSourceEmail
+          LOG_LEVEL: !Ref LogLevel
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref JobsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CandidatesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AuditEventsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+                - ses:SendTemplatedEmail
+              Resource: !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/*
+      Events:
+        ListJobsApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ResumeScreenerApi
+            Path: /jobs
+            Method: GET
+        CreateJobApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ResumeScreenerApi
+            Path: /jobs
+            Method: POST
+        GetJobApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ResumeScreenerApi
+            Path: /jobs/{jobId}
+            Method: GET
+        ListCandidatesApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ResumeScreenerApi
+            Path: /jobs/{jobId}/candidates
+            Method: GET
+        GetCandidateApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ResumeScreenerApi
+            Path: /jobs/{jobId}/candidates/{candidateId}
+            Method: GET
+        UpdateCandidateApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ResumeScreenerApi
+            Path: /jobs/{jobId}/candidates/{candidateId}
+            Method: PATCH
+        ShortlistCsvApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ResumeScreenerApi
+            Path: /jobs/{jobId}/shortlist.csv
+            Method: GET
+        SendNotificationApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ResumeScreenerApi
+            Path: /notifications/send
+            Method: POST
+
+  # ---------------------------------------------------------------------------
   # S3 Storage: Frontend Dashboard Hosting
   # ---------------------------------------------------------------------------
   FrontendBucket:
@@ -562,6 +686,23 @@ Resources:
       ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: notBreaching
 
+  LambdaErrorsAlarmApi:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub resume-screener-api-errors-${Environment}
+      AlarmDescription: Triggers on unhandled exceptions in the Backend API Lambda.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ApiFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
   # ---------------------------------------------------------------------------
   # CloudWatch Operational Dashboard: Pipeline Health & SLOs (Shashank)
   # ---------------------------------------------------------------------------
@@ -607,7 +748,9 @@ Resources:
                   [ "AWS/Lambda", "Invocations", "FunctionName", "${ScoringFunction}" ],
                   [ ".", "Errors", ".", ".", { "color": "#2ca02c" } ],
                   [ "AWS/Lambda", "Invocations", "FunctionName", "${ReliabilityFunction}" ],
-                  [ ".", "Errors", ".", ".", { "color": "#9467bd" } ]
+                  [ ".", "Errors", ".", ".", { "color": "#9467bd" } ],
+                  [ "AWS/Lambda", "Invocations", "FunctionName", "${ApiFunction}" ],
+                  [ ".", "Errors", ".", ".", { "color": "#8c564b" } ]
                 ],
                 "period": 60,
                 "stat": "Sum",
@@ -684,4 +827,22 @@ Outputs:
     Value: !GetAtt ReliabilityFunction.Arn
     Export:
       Name: !Sub ${AWS::StackName}-ReliabilityFunctionArn
+
+  CognitoUserPoolId:
+    Description: Cognito User Pool ID for recruiter and admin authentication
+    Value: !Ref CognitoUserPool
+    Export:
+      Name: !Sub ${AWS::StackName}-CognitoUserPoolId
+
+  CognitoUserPoolClientId:
+    Description: Cognito User Pool Client ID for frontend application
+    Value: !Ref CognitoUserPoolClient
+    Export:
+      Name: !Sub ${AWS::StackName}-CognitoUserPoolClientId
+
+  ApiFunctionArn:
+    Description: ARN for Backend API and SES Notifications Lambda
+    Value: !GetAtt ApiFunction.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-ApiFunctionArn
 
