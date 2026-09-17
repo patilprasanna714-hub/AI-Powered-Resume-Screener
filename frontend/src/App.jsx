@@ -1,5 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
-import './App.css'
+import { useEffect, useMemo, useRef, useState } from 'react'import './App.css'
 import {
   getJobs,
   getCandidates,
