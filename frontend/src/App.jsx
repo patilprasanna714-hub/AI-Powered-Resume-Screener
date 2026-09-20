@@ -1,13 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-<<<<<<< HEAD
-=======
-import {
-  getCandidates,
-  getJobs,
-  getShortlistCsvUrl,
-  updateCandidateDecision,
-} from './api'
->>>>>>> 495b6b8 (Complete frontend API integration)
 import './App.css'
 import {
   getCandidates,
@@ -36,34 +27,15 @@ const initialCandidates = [
   },
 ]
 
-<<<<<<< HEAD
 const sampleJobs = [
   { id: 'sample-design', title: 'Senior Product Designer', department: 'Design', location: 'New York · Hybrid', applicants: 48, progress: 76, color: 'purple' },
   { id: 'sample-frontend', title: 'Frontend Engineer', department: 'Engineering', location: 'Remote · US', applicants: 36, progress: 58, color: 'cyan' },
   { id: 'sample-product', title: 'Product Manager', department: 'Product', location: 'San Francisco · Hybrid', applicants: 24, progress: 42, color: 'orange' },
-=======
-const initialJobs = [
-  { title: 'Senior Product Designer', department: 'Design', location: 'New York · Hybrid', applicants: 48, progress: 76, color: 'purple' },
-  { title: 'Frontend Engineer', department: 'Engineering', location: 'Remote · US', applicants: 36, progress: 58, color: 'cyan' },
-  { title: 'Product Manager', department: 'Product', location: 'San Francisco · Hybrid', applicants: 24, progress: 42, color: 'orange' },
->>>>>>> 495b6b8 (Complete frontend API integration)
 ]
 
 const currentDate = new Intl.DateTimeFormat('en-US', {
   weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
 }).format(new Date()).toUpperCase()
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
-
-function getCollection(payload, key) {
-  if (Array.isArray(payload)) return payload
-  if (Array.isArray(payload?.[key])) return payload[key]
-  if (Array.isArray(payload?.items)) return payload.items
-  if (Array.isArray(payload?.data)) return payload.data
-  if (Array.isArray(payload?.data?.[key])) return payload.data[key]
-  if (Array.isArray(payload?.data?.items)) return payload.data.items
-  return []
-}
 
 function Icon({ name, size = 18 }) {
   const paths = {
@@ -86,6 +58,9 @@ function listFromResponse(data, key) {
   if (Array.isArray(data)) return data
   if (Array.isArray(data?.[key])) return data[key]
   if (Array.isArray(data?.items)) return data.items
+  if (Array.isArray(data?.data)) return data.data
+  if (Array.isArray(data?.data?.[key])) return data.data[key]
+  if (Array.isArray(data?.data?.items)) return data.data.items
   return []
 }
 
@@ -94,18 +69,12 @@ function candidateId(candidate) {
 }
 
 function App() {
-<<<<<<< HEAD
   const [candidates, setCandidates] = useState(initialCandidates)
   const [apiJobs, setApiJobs] = useState([])
   const [selectedJobId, setSelectedJobId] = useState(null)
   const [apiLoading, setApiLoading] = useState(Boolean(API_URL))
   const [apiError, setApiError] = useState('')
   const [pendingId, setPendingId] = useState(null)
-=======
-  const [candidates, setCandidates] = useState(API_BASE_URL ? [] : initialCandidates)
-  const [jobs, setJobs] = useState(API_BASE_URL ? [] : initialJobs)
-  const [selectedJobId, setSelectedJobId] = useState('')
->>>>>>> 495b6b8 (Complete frontend API integration)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('All statuses')
   const [activePage, setActivePage] = useState('Dashboard')
@@ -113,19 +82,22 @@ function App() {
   const fileInputRef = useRef(null)
 
   useEffect(() => {
-<<<<<<< HEAD
     if (!API_URL) return undefined
     let cancelled = false
     async function loadJobs() {
       try {
+        console.log('[API] Resolved API base URL:', API_URL)
         setApiError('')
         const response = await getJobs()
-        const list = listFromResponse(await response.json(), 'jobs')
+        const payload = await response.json()
+        console.log('[API] /jobs response:', payload)
+        const list = listFromResponse(payload, 'jobs')
         if (!cancelled) {
           setApiJobs(list)
           setSelectedJobId(list[0]?.job_id ?? list[0]?.jobId ?? list[0]?.id ?? null)
         }
       } catch (error) {
+        console.error('[API] /jobs error:', error)
         if (!cancelled) setApiError(error.message || 'Unable to load jobs.')
       } finally {
         if (!cancelled) setApiLoading(false)
@@ -134,62 +106,6 @@ function App() {
     loadJobs()
     return () => { cancelled = true }
   }, [])
-=======
-    console.log('[API] Resolved API base URL:', API_BASE_URL || '(missing)')
-    if (!API_BASE_URL) return
-
-    let active = true
-    getJobs()
-      .then((response) => response.json())
-      .then((payload) => {
-        console.log('[API] /jobs response:', payload)
-        const liveJobs = getCollection(payload, 'jobs')
-        if (!active) return
-        setJobs(liveJobs)
-        setSelectedJobId(liveJobs[0]?.job_id || '')
-      })
-      .catch((error) => {
-        console.error('[API] /jobs error:', error)
-        if (active) {
-          setJobs(initialJobs)
-          setCandidates(initialCandidates)
-        }
-      })
-
-    return () => {
-      active = false
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!API_BASE_URL || !selectedJobId) return
-
-    let active = true
-    getCandidates(selectedJobId)
-      .then((response) => response.json())
-      .then((payload) => {
-        console.log('[API] candidates response:', payload)
-        const liveCandidates = getCollection(payload, 'candidates')
-        if (!active) return
-        setCandidates(liveCandidates.map((candidate) => ({
-          ...candidate,
-          id: candidate.candidate_id,
-          status: candidate.status || candidate.recruiter_decision || 'New',
-        })))
-      })
-      .catch((error) => {
-        console.error('[API] candidates error:', error)
-        if (active) setCandidates(initialCandidates)
-      })
-
-    return () => {
-      active = false
-    }
-  }, [selectedJobId])
-
- const filteredCandidates = useMemo(() => candidates.filter((candidate) => {
-  const profile = candidate.parsed_profile || {}
->>>>>>> 495b6b8 (Complete frontend API integration)
 
   useEffect(() => {
     if (!API_URL || selectedJobId == null) return undefined
@@ -198,9 +114,12 @@ function App() {
       setApiLoading(true)
       try {
         const response = await getCandidates(selectedJobId)
-        const list = listFromResponse(await response.json(), 'candidates')
+        const payload = await response.json()
+        console.log('[API] candidates response:', payload)
+        const list = listFromResponse(payload, 'candidates')
         if (!cancelled) setCandidates(list)
       } catch (error) {
+        console.error('[API] candidates error:', error)
         if (!cancelled) setApiError(error.message || 'Unable to load candidates.')
       } finally {
         if (!cancelled) setApiLoading(false)
@@ -210,7 +129,7 @@ function App() {
     return () => { cancelled = true }
   }, [selectedJobId])
 
-  const jobs = API_URL ? apiJobs : sampleJobs
+  const jobs = API_URL && apiJobs.length ? apiJobs : sampleJobs
   const filteredCandidates = useMemo(() => candidates.filter((candidate) => {
     const profile = candidate.parsed_profile || {}
     const searchText = [profile.name, ...(profile.job_titles || []), ...(profile.skills || []), profile.email, profile.phone].filter(Boolean).join(' ').toLowerCase()
@@ -234,7 +153,6 @@ function App() {
     setCandidates((current) => current.map((candidate) => candidateId(candidate) === id ? { ...candidate, status } : candidate))
   }
 
-<<<<<<< HEAD
   const downloadCsv = () => {
     if (API_URL && selectedJobId != null) {
       const link = document.createElement('a')
@@ -244,39 +162,6 @@ function App() {
       return
     }
     const rows = [['Candidate', 'Job Titles', 'Experience', 'Skills', 'Email', 'Phone', 'Confidence', 'Flags', 'Status'], ...candidates.map((candidate) => {
-=======
-  const updateStatus = (id, status) => {
-    setCandidates((current) => current.map((candidate) => candidate.id === id ? { ...candidate, status } : candidate))
-
-    if (API_BASE_URL && selectedJobId) {
-      updateCandidateDecision(selectedJobId, id, status)
-        .catch((error) => console.error('[API] decision update error:', error))
-    }
-  }
-
- const downloadCsv = () => {
-  if (API_BASE_URL && selectedJobId) {
-    const link = document.createElement('a')
-    link.href = getShortlistCsvUrl(selectedJobId)
-    link.download = 'talentflow-shortlist.csv'
-    link.click()
-    return
-  }
-
-  const rows = [
-    [
-      'Candidate',
-      'Job Titles',
-      'Experience',
-      'Skills',
-      'Email',
-      'Phone',
-      'Confidence',
-      'Flags',
-      'Status'
-    ],
-    ...candidates.map((candidate) => {
->>>>>>> 495b6b8 (Complete frontend API integration)
       const profile = candidate.parsed_profile || {}
       return [profile.name || '', (profile.job_titles || []).join(' / '), profile.experience_years != null ? `${profile.experience_years} yrs` : '', (profile.skills || []).join(' / '), profile.email || '', profile.phone || '', profile.confidence?.overall != null ? `${Math.round(profile.confidence.overall * 100)}%` : '', (profile.flags || []).join(' / '), candidate.status || '']
     })]
