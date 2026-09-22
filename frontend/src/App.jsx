@@ -168,13 +168,13 @@ function App() {
         } else if (!cancelled) {
           setApiOffline(true)
           setApiReady(false)
-          setApiError('The live API returned no jobs. Demo data is active for the frontend walkthrough.')
+          setApiError('')
         }
       } catch (error) {
         if (!cancelled) {
           setApiOffline(true)
           setApiReady(false)
-          setApiError('Live API is unavailable. Demo data is active, so the frontend can still be tested safely.')
+          setApiError('')
         }
       } finally {
         if (!cancelled) setApiLoading(false)
